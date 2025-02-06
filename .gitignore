@@ -1,0 +1,4 @@
+.env
+*.jpg
+debug_code/karta.py
+debug_code/sql_qa_chatbot.py

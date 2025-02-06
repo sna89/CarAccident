@@ -1,0 +1,20 @@
+import streamlit as st
+from constants import INITIAL_DF
+
+
+def initialize_session() -> None:
+    """Initialize Streamlit session state variables."""
+    st.session_state.latest_feature = None
+    st.session_state.df = INITIAL_DF
+    st.session_state.initialized = True
+    st.session_state.new_entry = False
+    st.session_state.clear_data = False
+
+
+def clear_dataframe():
+    """Clear session data and reset the application state."""
+    st.session_state.leafmap_draw = {}
+    st.session_state.all_drawings = []
+    st.session_state.clear_data = True
+    st.session_state.df = INITIAL_DF
+    st.rerun()

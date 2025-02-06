@@ -1,4 +1,4 @@
-from datetime import time
+import time
 import requests
 from geopy.distance import geodesic
 
@@ -42,8 +42,8 @@ class GeoHelper:
     def calc_distance(point_1, point_2):
         return geodesic(point_1, point_2).kilometers
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     point_1 = [32.82168886, 34.95710216]
     point_2 = [32.7980294, 35.01442371]
     print(GeoHelper.calc_distance(point_2, point_1))
