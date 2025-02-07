@@ -16,6 +16,13 @@ This project is a Streamlit-based web application that allows users to analyze a
 - The SQL Agent fetches and analyzes accident data for the chosen location.
 - View insights such as accident frequency, severity, and contributing factors
 
+# Screenshots
+---
+### Main Screen - Manually selecting locations to analyze
 ![Main screen - Manually choosing locations](screen_1.JPG)
+
+### Main Screent - Acccident Cause Analysis Summary
 ![Main screen - Acccident Cause Analysis Summary](screen_2.JPG)
+
+### Main screen - Acccident Outcome Analysis Summary
 ![Main screen - Acccident Outcome Analysis Summary](screen_3.JPG)
