@@ -1,6 +1,7 @@
 import time
 import requests
 from geopy.distance import geodesic
+from pyproj import CRS, Transformer
 
 
 class GeoHelper:
@@ -8,7 +9,7 @@ class GeoHelper:
         pass
 
     @staticmethod
-    def reverse_geocode(lat, lon):
+    def reverse_geocode(lat, lon, idx=0):
         url = "https://nominatim.openstreetmap.org/reverse"
         params = {
             "lat": lat,
@@ -29,6 +30,7 @@ class GeoHelper:
                 response = requests.get(url, params=params, headers=headers, timeout=5)
                 response.raise_for_status()
                 res = response.json()
+                res["idx"] = idx
                 res["lat"] = lat
                 res["lon"] = lon
                 return res
@@ -41,6 +43,15 @@ class GeoHelper:
     @staticmethod
     def calc_distance(point_1, point_2):
         return geodesic(point_1, point_2).kilometers
+
+    @staticmethod
+    def convert_from_utm_to_longitude_latitude(utm_x, utm_y):
+        utm_crs = CRS.from_epsg(2039)
+        wgs84_crs = CRS.from_epsg(4326)  # WGS84 geographic coordinates
+
+        transformer = Transformer.from_crs(utm_crs, wgs84_crs, always_xy=True)
+        latitude, longitude = transformer.transform(utm_x, utm_y)
+        return longitude, latitude
 
 
 if __name__ == "__main__":

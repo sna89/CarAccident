@@ -1,0 +1,195 @@
+{
+  "sug_yom_mapping": {
+    "1": "Holiday",
+    "2": "Holiday Eve",
+    "3": "Interim Holiday",
+    "4": "Regular Day"
+  },
+  "yom_layla_mapping": {
+    "1": "Day",
+    "5": "Night"
+  },
+  "ramzor_mapping": {
+    "0": "No",
+    "1": "Yes",
+    "9": "Unknown"
+  },
+  "humra_mapping": {
+    "1": "Fatal",
+    "2": "Serious",
+    "3": "Minor"
+  },
+  "sug_teuna_mapping": {
+    "1": "Pedestrian Injury",
+    "2": "Front-to-Side Collision",
+    "3": "Front-to-Rear Collision",
+    "4": "Side-to-Side Collision",
+    "5": "Head-On Collision",
+    "6": "Collision with Stopped Vehicle (Not Parked)",
+    "7": "Collision with Parked Vehicle",
+    "8": "Collision with Fixed Object",
+    "9": "Off-Road or Curb Climb",
+    "10": "Rollover",
+    "11": "Skid",
+    "12": "Injury to Passenger Inside Vehicle",
+    "13": "Fall in Moving Vehicle",
+    "14": "Fire",
+    "15": "Other",
+    "17": "Rear-to-Front Collision",
+    "18": "Rear-to-Side Collision",
+    "19": "Collision with Animal",
+    "20": "Injury from Vehicle Cargo"
+  },
+  "zurat_derech_mapping": {
+    "1": "Entering Interchange",
+    "2": "Exiting Interchange",
+    "3": "Parking Lot/Gas Station",
+    "4": "Steep Slope",
+    "5": "Sharp Curve",
+    "6": "On Bridge/Tunnel",
+    "7": "Railway Crossing",
+    "8": "Straight Road/Intersection",
+    "9": "Other",
+    "10": "Bus Station",
+    "11": "Public Transportation Lane"
+  },
+  "sug_derech_mapping": {
+    "1": "Urban Intersection",
+    "2": "Urban Non-Intersection",
+    "3": "Non-Urban Intersection",
+    "4": "Non-Urban Non-Intersection"
+  },
+  "had_maslul_mapping": {
+    "1": "One-Way",
+    "2": "Two-Way + Continuous Separation Line",
+    "3": "Two-Way Without Continuous Separation Line",
+    "4": "Other",
+    "9": "Unknown Number of Lanes"
+  },
+  "rav_maslul_mapping": {
+    "1": "Marked Divider (Painted)",
+    "2": "Divider with Safety Barrier",
+    "3": "Built Divider Without Safety Barrier",
+    "4": "Non-Built Divider",
+    "5": "Other"
+  },
+  "mehirut_muteret_mapping": {
+    "0": "Unknown",
+    "1": "Up to 50 km/h",
+    "2": "60 km/h",
+    "3": "70 km/h",
+    "4": "80 km/h",
+    "5": "90 km/h",
+    "6": "100 km/h",
+    "7": "110 km/h"
+  },
+  "tkinut_mapping": {
+    "0": "Unknown",
+    "1": "No Defect",
+    "2": "Poor Shoulders",
+    "3": "Bumpy Road",
+    "4": "Poor Shoulders and Bumpy Road"
+  },
+  "rohav_mapping": {
+    "0": "Unknown",
+    "1": "Up to 5 meters",
+    "2": "5 to 7 meters",
+    "3": "7 to 10.5 meters",
+    "4": "10.5 to 14 meters",
+    "5": "More than 14 meters"
+  },
+  "simun_timrur_mapping": {
+    "1": "Faulty/Missing Marking",
+    "2": "Faulty/Missing Signage",
+    "3": "No Fault",
+    "4": "Signage Not Required",
+    "5": "Unknown"
+  },
+  "teura_mapping": {
+    "1": "Regular Daylight",
+    "2": "Limited Visibility Due to Weather (Smoke, Fog)",
+    "3": "Night with Functional Lighting",
+    "4": "Lighting Exists but Faulty/Not Functional",
+    "5": "Night Without Lighting",
+    "6": "Night - Lighting Status Unknown",
+    "7": "Night - Functional Lighting with Limited Visibility",
+    "8": "Night - Faulty Lighting with Limited Visibility",
+    "9": "Night Without Lighting and Limited Visibility",
+    "10": "Twilight",
+    "11": "Day - Status Unknown"
+  },
+  "bakara_mapping": {
+    "1": "No Control",
+    "2": "Functional Traffic Light",
+    "3": "Flashing Yellow Traffic Light",
+    "4": "Non-Functional Traffic Light",
+    "5": "Stop Sign",
+    "6": "Yield Sign",
+    "7": "Other"
+  },
+  "mezeg_avir_mapping": {
+    "1": "Clear",
+    "2": "Rainy",
+    "3": "Hot (Sharav)",
+    "4": "Foggy",
+    "5": "Other",
+    "9": "Unknown"
+  },
+  "pne_kvish_mapping": {
+    "1": "Dry",
+    "2": "Wet (Water)",
+    "3": "Covered with Fuel",
+    "4": "Covered with Mud",
+    "5": "Sand or Gravel on Road",
+    "6": "Other",
+    "9": "Unknown"
+  },
+  "sug_ezem_mapping": {
+    "1": "Tree",
+    "2": "Electricity/Lighting/Telephone pole",
+    "3": "Traffic sign",
+    "4": "Bridge with its markers and guard rails",
+    "5": "Building",
+    "6": "Vehicle safety barrier",
+    "7": "Barrel",
+    "8": "Other",
+    "9": "Unknown"
+  },
+  "merhak_ezem_mapping": {
+    "1": "Up to 1 meter",
+    "2": "1-3 meters",
+    "3": "On the road",
+    "4": "On the median",
+    "9": "Unknown"
+  },
+  "lo_haza_mapping": {
+    "1": "Walked with the traffic",
+    "2": "Walked against the traffic",
+    "3": "Played on the road",
+    "4": "Stood on the road",
+    "5": "Was on the median island",
+    "6": "Was on the shoulder/sidewalk",
+    "7": "Other",
+    "9": "Unknown"
+  },
+  "ofen_haziya_mapping": {
+    "1": "Ran onto the road",
+    "2": "Crossed while concealed",
+    "3": "Crossed normally",
+    "4": "Other",
+    "8": "Did not cross",
+    "9": "Unknown crossing status"
+  },
+  "mekom_haziya_mapping": {
+    "1": "Not at a crosswalk near an intersection",
+    "2": "Not at a crosswalk away from an intersection",
+    "3": "At a crosswalk without a traffic light",
+    "4": "At a crosswalk with a traffic light",
+    "9": "Unknown crossing location"
+  },
+  "kivun_haziya_mapping": {
+    "1": "From right to left",
+    "2": "From left to right",
+    "9": "Unknown"
+  }
+}

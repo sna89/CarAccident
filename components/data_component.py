@@ -6,15 +6,19 @@ from utils.geocoding import GeoHelper
 
 def filter_dataframe():
     """Filter accident data based on user selection."""
-    st.subheader("Select Urban Area To Analyze For Accidents")
+    st.subheader("Select an urban area for accident analysis.")
     filter_level = st.selectbox("Filter Level", [None, "CITY", "TOWN", "CITY_DISTRICT", "SUBURB", "ROAD"])
     filtered_df = pd.DataFrame()
+    filtered_locations = []
 
     if filter_level:
-        selected_location = st.selectbox(f"Select {filter_level}", st.session_state.df[filter_level].unique())
-        filtered_df = st.session_state.df[st.session_state.df[filter_level] == selected_location]
+        filtered_locations = st.multiselect(
+            f"Select {filter_level}",
+            list(st.session_state.df[filter_level].unique())
+        )
+        filtered_df = st.session_state.df[st.session_state.df[filter_level].isin(filtered_locations)]
 
-    return filter_level, filtered_df
+    return filtered_locations, filter_level, filtered_df
 
 
 def show_dataframe(filtered_df):

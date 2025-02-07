@@ -1,3 +1,5 @@
+import os
+
 import streamlit as st
 from components.analysis_component import analyze_dataframe
 from components.data_component import update_dataframe, show_dataframe, filter_dataframe, render_dataframe
@@ -13,7 +15,19 @@ class CarAccidentApp:
         if "initialized" not in st.session_state:
             initialize_session()
 
+    @staticmethod
+    def show_about():
+        st.sidebar.header("About")
+        st.sidebar.info(
+            """
+            This application is an educational project developed solely for learning purposes.
+            It utilizes accident data from LAMAS covering the years 2003 to 2023.
+            """
+        )
+
     def run(self):
+        self.show_about()
+
         # Define layout columns
         map_col, dataframe_col = st.columns([2.5, 2.5], gap="medium")
 
@@ -24,14 +38,19 @@ class CarAccidentApp:
 
         with dataframe_col:
             render_dataframe(draw_data)
-            filter_level, filtered_df = filter_dataframe()
+            filtered_locations, filter_level, filtered_df = filter_dataframe()
             show_dataframe(filtered_df)
             if st.button("🔄 Clear Data", key="clear", help="Reset all selections"):
                 clear_dataframe()
 
-            analyze_dataframe(filter_level, filtered_df)
+        cause_col, outcome_col = st.columns([1, 1])
+        with cause_col:
+            analyze_dataframe(filtered_locations, filter_level, filtered_df, "cause")
+        with outcome_col:
+            analyze_dataframe(filtered_locations, filter_level, filtered_df, "outcome")
 
 
 if __name__ == "__main__":
     app = CarAccidentApp()
     app.run()
+
