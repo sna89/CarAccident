@@ -3,6 +3,7 @@
 📌 Overview
 
 This project is a Streamlit-based web application that allows users to analyze accident data from Lamas (Israel) using an SQL Agent powered by the LangChain framework. The app enables users to select a specific location on an interactive map and retrieve insightful accident data analytics for that area.
+
 Visit the app: [Car Acccident App](https://caraccidents.streamlit.app/)
 
 ✨ Features
