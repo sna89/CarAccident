@@ -60,11 +60,7 @@ class CarAccidentApp:
                               filtered_df,
                               "outcome")
 
-    def add_rag(self):
-        pass
-
 
 if __name__ == "__main__":
     app = CarAccidentApp()
     app.run()
-    app.add_rag()
