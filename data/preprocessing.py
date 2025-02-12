@@ -28,9 +28,9 @@ Usage:
     and outputs the enriched dataset for further analysis.
 """
 
-ACCIDENT_FILE_NAME = "accident_data.csv"
+ACCIDENT_FILE_NAME = "csv/accident_data.csv"
 MAPPING_FILE_NAME = r"accident_data_mapping.json"
-ACCIDENT_OUT_FILE_NAME = "accident_data_processed.csv"
+ACCIDENT_OUT_FILE_NAME = "csv/accident_data_processed.csv"
 LOCATIONS_OUT_FILE_NAME = "locations.csv"
 NUM_THREADS = 5
 

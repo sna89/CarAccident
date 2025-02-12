@@ -1,5 +1,6 @@
 import streamlit as st
-from constants import INITIAL_DF
+from config import INITIAL_DF
+from utils.sql_llm_agent import SqlLLMAgent
 
 
 def initialize_session() -> None:
@@ -9,6 +10,11 @@ def initialize_session() -> None:
     st.session_state.initialized = True
     st.session_state.new_entry = False
     st.session_state.clear_data = False
+
+    st.session_state.sql_llm_agent = SqlLLMAgent()
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
 
 
 def clear_dataframe():

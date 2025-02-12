@@ -1,8 +1,7 @@
-import os
-
 import streamlit as st
 from components.analysis_component import analyze_dataframe
 from components.data_component import update_dataframe, show_dataframe, filter_dataframe, render_dataframe
+from components.dialog import Dialog
 from components.map_component import render_map
 from utils.session_handler import initialize_session, clear_dataframe
 
@@ -11,12 +10,16 @@ class CarAccidentApp:
     def __init__(self):
         st.set_page_config(layout="wide")  # Ensure full-width layout
 
-        # Initialize session state if not already done
         if "initialized" not in st.session_state:
             initialize_session()
 
     @staticmethod
-    def show_about():
+    def show_dialog_side():
+        if st.sidebar.button("Chat with AI Road Expert"):
+            Dialog.show_dialog()
+
+    @staticmethod
+    def show_about_side():
         st.sidebar.header("About")
         st.sidebar.info(
             """
@@ -26,7 +29,9 @@ class CarAccidentApp:
         )
 
     def run(self):
-        self.show_about()
+        self.show_dialog_side()
+        st.sidebar.divider()
+        self.show_about_side()
 
         # Define layout columns
         map_col, dataframe_col = st.columns([2.5, 2.5], gap="medium")
@@ -45,12 +50,21 @@ class CarAccidentApp:
 
         cause_col, outcome_col = st.columns([1, 1])
         with cause_col:
-            analyze_dataframe(filtered_locations, filter_level, filtered_df, "cause")
+            analyze_dataframe(filtered_locations,
+                              filter_level,
+                              filtered_df,
+                              "cause")
         with outcome_col:
-            analyze_dataframe(filtered_locations, filter_level, filtered_df, "outcome")
+            analyze_dataframe(filtered_locations,
+                              filter_level,
+                              filtered_df,
+                              "outcome")
+
+    def add_rag(self):
+        pass
 
 
 if __name__ == "__main__":
     app = CarAccidentApp()
     app.run()
-
+    app.add_rag()

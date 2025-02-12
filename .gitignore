@@ -2,3 +2,8 @@
 *.jpg
 debug_code/
 *.csv
+*.xml
+*.pyc
+data/csv
+data/pdf
+data/pdf2

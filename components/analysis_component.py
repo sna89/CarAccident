@@ -1,4 +1,4 @@
-from constants import INFERENCE_COLUMNS
+from config import INFERENCE_COLUMNS
 from utils.sql_llm_agent import SqlLLMAgent
 import streamlit as st
 
@@ -39,7 +39,6 @@ ANALYSIS_OUTCOME_PROMPT = """
 
 @st.cache_data()
 def call_llm_query(filtered_locations, filter_level, filtered_df, analysis_type="cause"):
-    sql_llm = SqlLLMAgent()
     location_name_dict = filtered_df[filtered_df[filter_level].isin(filtered_locations)].to_dict()
 
     if analysis_type == "cause":
@@ -49,7 +48,7 @@ def call_llm_query(filtered_locations, filter_level, filtered_df, analysis_type=
     else:
         return
 
-    output = sql_llm.query_llm(prompt)
+    output = st.session_state.sql_llm_agent.query_llm(prompt)
     return output
 
 
@@ -75,5 +74,6 @@ def analyze_dataframe(filtered_locations, filter_level, filtered_df, analysis_ty
             st.error("Please choose locations to analyze.")
         else:
             output = call_llm_query(filtered_locations, filter_level, filtered_df, analysis_type)
-            with st.expander("Show Analysis"):
-                st.write(output.content)
+            with st.popover("Show Analysis"):
+                st.markdown(output.content)
+

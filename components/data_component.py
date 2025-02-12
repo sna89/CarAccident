@@ -1,7 +1,10 @@
 import streamlit as st
 import pandas as pd
-from constants import DF_COLUMNS, INITIAL_DF
+
+from config import DF_COLUMNS, INITIAL_DF
 from utils.geocoding import GeoHelper
+
+
 
 
 def filter_dataframe():

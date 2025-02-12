@@ -1,16 +1,13 @@
-import os
 from dotenv import load_dotenv
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 
 import ast
-from langchain_openai import ChatOpenAI
 from langchain import hub
 from langgraph.prebuilt import create_react_agent
-from utils.sql_db import SqlDb
-from constants import INFERENCE_COLUMNS, LLM_MODEL
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from langchain.llms import HuggingFacePipeline
+from utils.llm_utils import get_llm_model
+from utils.sql_db import SqlDb
+from config import INFERENCE_COLUMNS, LLM_MODEL
 
 
 class SqlLLMAgent:
@@ -18,41 +15,12 @@ class SqlLLMAgent:
         load_dotenv()
 
         self.db = SqlDb().db
-        self.llm = self._get_llm_model(provider="OpenAI", model_name=LLM_MODEL)
+        self.llm = get_llm_model(provider="openai", model_name=LLM_MODEL)
 
         if self.llm:
             self.db_tools = self._get_db_tools()
             self.system_messege = self._get_system_messege()
             self.agent = self._get_agent()
-
-    @staticmethod
-    def _get_llm_model(provider, model_name):
-        if provider == "OpenAI":
-            openai_api_key = os.environ.get("OPENAI_API_KEY")
-            llm = ChatOpenAI(model=model_name, openai_api_key=openai_api_key, temperature=0)
-            return llm
-
-        elif provider == "HuggingFace":
-            token = os.environ.get("HUGGINGFACE_TOKEN")
-
-            tokenizer = AutoTokenizer.from_pretrained(model_name, use_auth_token=token)
-            model = AutoModelForCausalLM.from_pretrained(model_name, use_auth_token=token, device_map="auto")
-
-            # Create a Hugging Face pipeline for text generation.
-            pipe = pipeline(
-                "text-generation",
-                model=model,
-                tokenizer=tokenizer,
-                max_new_tokens=256,
-                temperature=0,
-            )
-
-            # Create the LangChain LLM wrapper.
-            llm = HuggingFacePipeline(pipeline=pipe)
-            return llm
-
-        else:
-            return None
 
     def _get_db_tools(self):
         toolkit = SQLDatabaseToolkit(db=self.db, llm=self.llm)
