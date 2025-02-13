@@ -28,3 +28,33 @@ Visit the app: [Car Acccident App](https://caraccidents.streamlit.app/)
 
 ### Main screen - Acccident Outcome Analysis Summary
 ![Main screen - Acccident Outcome Analysis Summary](screen_3.JPG)
+
+# Own Usage
+
+This project requires specific environment variables to securely connect to external services, namely the Supabase database and the OpenAI API.
+
+## Environment Variables
+### Supabase
+To interact with your Supabase project (which includes a PostgreSQL database), you need to set the following variables:
+
+- **`SUPABASE_URL`**: The URL of your Supabase project.
+- **`SUPABASE_KEY`**: The API key for your Supabase project.
+- **`DATABASE_URL`**: The connection string for your PostgreSQL database.
+- **`DB_PASSWORD`**: The password for your PostgreSQL database.
+
+### OpenAI
+
+To use the OpenAI API, you need to provide:
+
+- **`OPENAI_API_KEY`**: Your OpenAI API key.
+
+## Setting Up Environment Variables
+
+You can set these variables directly in your system or use a `.env` file (with a package like [python-dotenv](https://pypi.org/project/python-dotenv/) for Python projects). For example, create a `.env` file in the root directory of your project with the following content:
+
+```dotenv
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_KEY=your_supabase_key_here
+DATABASE_URL=your_database_url_here
+DB_PASSWORD=your_database_password_here
+OPENAI_API_KEY=your_openai_api_key_here
