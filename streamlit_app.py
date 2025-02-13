@@ -23,8 +23,9 @@ class CarAccidentApp:
         st.sidebar.header("About")
         st.sidebar.info(
             """
-            This application is an educational project developed solely for learning purposes.
-            It utilizes accident data from LAMAS covering the years 2003 to 2023.
+            This application is an educational project created exclusively for learning purposes. 
+            It leverages accident data from LAMAS (2003–2023) to analyze car accidents and propose strategies 
+            for reducing them through improvements in road infrastructure. 
             """
         )
 
