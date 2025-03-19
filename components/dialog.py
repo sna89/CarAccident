@@ -1,6 +1,6 @@
 import streamlit as st
 
-from components.rag import RAG
+from rag.rag_main import RAG
 
 
 class Dialog:
@@ -17,8 +17,6 @@ class Dialog:
     @staticmethod
     @st.dialog("AI Chat", width="large")
     def show_dialog():
-        Dialog.show_history()
-
         prompt = st.chat_input("Ask me a question?")
 
         if prompt:

@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Table, insert, MetaData
 from langchain_community.utilities import SQLDatabase
 from dotenv import load_dotenv
 from supabase import create_client
+import pandas as pd
 
 
 class SqlDb:
@@ -29,12 +30,12 @@ class SqlDb:
         db = SQLDatabase(self.engine)
         return db
 
-    def upload_table_from_pandas_df(self, table_name, df):
+    def upload_table_from_pandas_df(self, table_name, df, if_exists="append"):
         assert self.engine, "SQL Engine is not configured"
         assert table_name, "Please provide a table name"
 
         df.columns = df.columns.str.lower()
-        df.to_sql(table_name, self.engine, if_exists="append", index=False)
+        df.to_sql(table_name, self.engine, if_exists=if_exists, index=False)
 
     def upload_data_incrementally(self, table_name, data):
         metadata = MetaData()
@@ -44,3 +45,7 @@ class SqlDb:
             with connection.begin():
                 stmt = insert(sql_table).values(data)
                 connection.execute(stmt)
+
+    def load_data_from_db(self, table_name):
+        df = pd.read_sql_table(table_name, self.engine)
+        return df
