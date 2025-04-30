@@ -7,3 +7,5 @@ debug_code/
 data/csv
 data/pdf
 data/pdf2
+data/evaluation
+.venv/

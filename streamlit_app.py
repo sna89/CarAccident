@@ -19,6 +19,36 @@ class CarAccidentApp:
             Dialog.show_dialog()
 
     @staticmethod
+    @st.dialog("Deep Research Analysis", width="large")
+    def show_deep_research_dialog():
+        research_question = st.text_area(
+            "Enter your research question:",
+            placeholder="e.g., What are the most common causes of accidents in urban areas?",
+            height=100
+        )
+        
+        if research_question:
+            with st.chat_message("user"):
+                Dialog.show_message(research_question)
+            
+            with st.chat_message("assistant"):
+                response = Dialog.rag.chat(research_question)
+                Dialog.show_message(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+
+        if st.button("Clear Research"):
+            st.session_state.messages = []
+
+        if st.button("Close Dialog"):
+            st.rerun()
+
+    @staticmethod
+    def show_deep_research_side():
+        st.sidebar.header("Deep Research")
+        if st.sidebar.button("🔍 Start Deep Analysis"):
+            CarAccidentApp.show_deep_research_dialog()
+
+    @staticmethod
     def show_about_side():
         st.sidebar.header("About")
         st.sidebar.info(
@@ -31,6 +61,8 @@ class CarAccidentApp:
 
     def run(self):
         self.show_dialog_side()
+        st.sidebar.divider()
+        self.show_deep_research_side()
         st.sidebar.divider()
         self.show_about_side()
 
