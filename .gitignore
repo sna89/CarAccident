@@ -9,3 +9,5 @@ data/pdf
 data/pdf2
 data/evaluation
 .venv/
+debug/
+.langgraph_api/
