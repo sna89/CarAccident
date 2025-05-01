@@ -1,0 +1,13 @@
+{
+  "messages": [
+    {
+      "role": "human",
+      "content": "What are the most common causes of accidents in urban areas?"
+    }
+  ],
+  "current_section": "",
+  "research_sections": {},
+  "iteration_count": 0,
+  "is_final": false,
+  "generated_content": {}
+}

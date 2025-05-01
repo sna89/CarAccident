@@ -1,7 +1,7 @@
 import streamlit as st
-from components.map_component import render_map
-from components.data_component import update_dataframe, show_dataframe, filter_dataframe, render_dataframe
-from components.analysis_component import analyze_dataframe
+from components.map.map_component import render_map
+from components.map.data_component import update_dataframe, show_dataframe, filter_dataframe, render_dataframe
+from components.map.analysis_component import analyze_dataframe
 from utils.session_handler import clear_dataframe
 
 def show_map_view():

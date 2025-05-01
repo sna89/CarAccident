@@ -1,5 +1,5 @@
 import streamlit as st
-from components.dialog import Dialog
+from components.rag.dialog import Dialog
 
 def show_research_view():
     st.markdown('<h1 style="text-align: center; color: #2E86C1;">AI Road Expert Chat</h1>', unsafe_allow_html=True)

@@ -1,5 +1,5 @@
 import streamlit as st
-from components.dialog import Dialog
+from components.rag.dialog import Dialog
 
 def show_chat_view():
     # Header
