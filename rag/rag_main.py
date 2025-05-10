@@ -9,7 +9,7 @@ from rag.document_processor import DocumentProcessor
 from rag.rag_embedding_helper import EmbeddingHelper
 from rag.vector_store_helper import  VectorStoreHelper
 from rag.rag_conversation import RAGConversation
-from utils.llm_utils import get_llm_model
+from utils.llm.model import get_llm_model
 
 
 class RAG:

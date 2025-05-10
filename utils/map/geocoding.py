@@ -5,12 +5,24 @@ from pyproj import CRS, Transformer
 
 
 class GeoHelper:
-    def __init__(self):
-        pass
+    # Class-level configuration
+    BASE_URL = "https://nominatim.openstreetmap.org/reverse"
+    HEADERS = {
+        "User-Agent": "CarAccidentAnalysis/1.0 (https://github.com/yourusername/car_accident_app)",
+        "Accept-Language": "en, he"
+    }
+    MIN_REQUEST_INTERVAL = 1.0  # Minimum 1 second between requests
+    _last_request_time = 0
 
-    @staticmethod
-    def reverse_geocode(lat, lon, idx=0):
-        url = "https://nominatim.openstreetmap.org/reverse"
+    @classmethod
+    def reverse_geocode(cls, lat, lon, idx=0):
+        """Reverse geocode coordinates to address with rate limiting."""
+        # Ensure we're not making requests too quickly
+        current_time = time.time()
+        time_since_last_request = current_time - cls._last_request_time
+        if time_since_last_request < cls.MIN_REQUEST_INTERVAL:
+            time.sleep(cls.MIN_REQUEST_INTERVAL - time_since_last_request)
+
         params = {
             "lat": lat,
             "lon": lon,
@@ -20,15 +32,18 @@ class GeoHelper:
             "namedetails": 1,
             "zoom": 18
         }
-        headers = {
-            "User-Agent": "YourAppName/1.0 (your_email@example.com)",
-            "Accept-Language": "en, he"
-        }
 
         for attempt in range(3):  # Retry up to 3 times
             try:
-                response = requests.get(url, params=params, headers=headers, timeout=5)
+                response = requests.get(
+                    cls.BASE_URL,
+                    params=params,
+                    headers=cls.HEADERS,
+                    timeout=5
+                )
                 response.raise_for_status()
+                cls._last_request_time = time.time()
+                
                 res = response.json()
                 res["idx"] = idx
                 res["lat"] = lat

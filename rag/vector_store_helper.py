@@ -9,7 +9,7 @@ from langchain_community.vectorstores import SupabaseVectorStore
 
 from rag.rag_config import RAG_CONFIG
 from rag.rag_embedding_helper import EmbeddingHelper
-from utils.sql_db import SqlDb
+from utils.sql.sql_db import SqlDb
 
 logger = logging.getLogger(__name__)
 

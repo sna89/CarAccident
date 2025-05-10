@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
+from typing import Dict, Any, Optional
 
 from config import DF_COLUMNS, INITIAL_DF
-from utils.geocoding import GeoHelper
+from utils.map.geocoding import GeoHelper
 
 
 
@@ -27,26 +28,51 @@ def filter_dataframe():
 def show_dataframe(filtered_df):
     if not filtered_df.empty:
         st.dataframe(filtered_df, width=800, height=200)
+    elif not st.session_state.df.empty and not st.session_state.get('clear_data', False):
+        st.dataframe(st.session_state.df, width=800, height=200)
     else:
-        if not st.session_state.df.empty:
-            st.dataframe(st.session_state.df, width=800, height=200)
-        else:
-            st.info("📌 Select a location to see accident details.")
+        st.info("📌 Select a location to see accident details.")
 
 
-def update_dataframe(draw_data):
-    """Update session state with new drawing data."""
-
-    if not st.session_state.clear_data:
+def handle_drawing_state(draw_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Manage state transitions for map drawing operations.
+    
+    Args:
+        draw_data (Dict[str, Any]): The drawing data from the map component
+        
+    Returns:
+        Dict[str, Any]: The processed drawing data
+        
+    Raises:
+        ValueError: If draw_data is None or invalid
+    """
+    if not draw_data:
+        raise ValueError("Draw data cannot be None")
+        
+    try:
+        # Handle clear data state
+        if st.session_state.get('clear_data', False):
+            st.session_state.clear_data = False
+            st.session_state.latest_feature = None
+            st.session_state.new_entry = False
+            return draw_data
+            
+        # Get the latest drawing
         last_drawing = draw_data.get("last_active_drawing")
-        if st.session_state.latest_feature != last_drawing:
+        
+        # Update state only if there's a new drawing
+        if last_drawing != st.session_state.get('latest_feature'):
             st.session_state.latest_feature = last_drawing
             st.session_state.new_entry = True
         else:
             st.session_state.new_entry = False
-    else:
-        st.session_state.clear_data = False
-    return draw_data
+            
+        return draw_data
+        
+    except Exception as e:
+        st.error(f"Error updating drawing state: {str(e)}")
+        return draw_data
 
 
 def render_dataframe(draw_data: dict) -> dict:

@@ -39,7 +39,8 @@ def create_planner_agent():
         Analyze the question and determine how many sections are needed to thoroughly cover the topic.
         Each section should focus on a specific aspect of the research question.
         
-        Important: You must create no more than {max_sections} main sections (excluding the conclusion section).
+        Important: You must create no more than {max_sections} main sections (excluding the introduction 
+        and conclusion sections).
         If the topic requires more coverage, combine related aspects into broader sections.
         
         Return a JSON with the following structure:

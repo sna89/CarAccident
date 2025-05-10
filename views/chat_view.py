@@ -1,7 +1,15 @@
 import streamlit as st
-from components.rag.dialog import Dialog
+from components.qa.dialog import Dialog
+from utils.session.session_handler import initialize_session
 
 def show_chat_view():
+    # Initialize session if needed
+    if not st.session_state.get("initialized"):
+        initialize_session()
+    
+    # Create dialog instance
+    dialog = Dialog()
+    
     # Header
     st.markdown('<h1 style="text-align: center; color: #2E86C1;">AI Road Expert Chat</h1>', unsafe_allow_html=True)
     
@@ -10,21 +18,12 @@ def show_chat_view():
     
     with col1:
         # Display chat history
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(Dialog.font_markdown.format(message["content"]), unsafe_allow_html=True)
+        dialog.show_history()
 
         # Chat input
         prompt = st.chat_input("Ask me a question about road safety and accident patterns?")
         if prompt:
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                Dialog.show_message(prompt)
-            
-            with st.chat_message("assistant"):
-                response = Dialog.rag.chat(prompt)
-                Dialog.show_message(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
+            dialog.process_user_input(prompt)
 
     with col2:
         # Buttons in the right column
@@ -32,7 +31,7 @@ def show_chat_view():
             st.session_state.current_view = "main"
             st.rerun()
         if st.button("Clear Chat"):
-            st.session_state.messages = []
+            dialog.clear_chat()
 
 if __name__ == "__main__":
     show_chat_view()    

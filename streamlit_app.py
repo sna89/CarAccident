@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.session_handler import initialize_session
+from utils.session.session_handler import initialize_session
 from views.main_screen import show_main_screen_view
 from views.map_view import show_map_view
 from views.chat_view import show_chat_view
