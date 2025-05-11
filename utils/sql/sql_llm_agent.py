@@ -20,8 +20,8 @@ class SqlLLMAgent:
 
         if self.llm:
             self.db_tools = self._get_db_tools()
-            self.python_tool = self._get_python_tool()
-            self.system_messege = self._get_system_messege()
+            # self.python_tool = self._get_python_tool()
+            # self.system_messege = self._get_system_messege()
             self.agent = self._get_agent()
 
     def _get_db_tools(self):
@@ -55,9 +55,10 @@ When using the Python REPL tool:
 
     def _get_agent(self):
         # Combine SQL tools with Python REPL tool
-        all_tools = self.db_tools + [self.python_tool]
+        # all_tools = self.db_tools + [self.python_tool]
+        all_tools = self.db_tools
         agent_executor = create_react_agent(
-            self.llm, all_tools, state_modifier=self.system_messege
+            self.llm, all_tools
         )
         return agent_executor
 
