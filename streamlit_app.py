@@ -15,7 +15,6 @@ class CarAccidentApp:
 
         if "initialized" not in st.session_state:
             initialize_session()
-            st.session_state.current_view = "main"  # Initialize the current view
             st.session_state.messages = []  # Initialize chat messages
             st.session_state.research_messages = []  # Initialize research messages
                     

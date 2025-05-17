@@ -1,404 +1,377 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from config import INFERENCE_COLUMNS
-from utils.session.session_handler import initialize_session
+
+from typing import List, Dict, Any, Tuple, Optional
+import json
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from langchain.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field
-from typing import List
-from utils.plotting import create_line_chart
-import json
 
-SHARED_PROMPT = """
-First, generate a SQL query to filter accident data with the following location filter:
+from utils.session.session_handler import initialize_session
+from utils.agents.python_agent import run_chart_code
+from components.map.prompts import (
+    GENERAL_ANALYSIS_PROMPT,
+    GENERAL_SUMMARY_PROMPT,
+    CAUSE_ANALYSIS_PROMPT,
+    CAUSE_SUMMARY_PROMPT,
+    OUTCOME_ANALYSIS_PROMPT,
+    OUTCOME_SUMMARY_PROMPT,
+    OUTCOME_CATEGORIES,
+    CAUSE_COLUMN_CATEGORIES as COLUMN_CATEGORIES,
+    BASE_JOIN_PROMPT,
+    GENERAL_INSTRUCTIONS,
+    FINAL_OUTPUT_FORMAT,
+    CHART_PROMPT
+)
 
-Filter Level: {}
-Location: {}
 
-You need both accident data and location data to generate the query.
-Location Hierarchy Logic:
-- Each location belongs to a hierarchy (Road → Suburb → City District -> Town) or (Road → Suburb → City District -> City)
-- If both Town and City are provided, the query should filter based on the Town
-- All locations are columns in the accidents table
-- Filter should consider the full context of the location in its hierarchy
-- A Higher level filter (e.g., City) in hierarchy does not need lower level details.
-- A Lower level filter (e.g., Road) in hierarchy should include their parent locations
-- Each level must maintain its relationship with parent locations
-
-Location Hierarchy Examples:
-1. City Level:
-   - Example: {{'CITY': {{1: 'Tel Aviv'}}, 'CITY_DISTRICT': {{1: None}}, 'TOWN': {{1: None}}, 'SUBURB': {{1: None}}, 'ROAD': {{1: None}}}}
-   - Filter Level: "CITY"
-   - Query should: Filter on city column
-   - Group by: city and year
-   - No need for lower level details
-
-2. City District Level:
-   - Example: {{'CITY': {{1: 'Tel Aviv'}}, 'CITY_DISTRICT': {{1: 'Central'}}, 'TOWN': {{1: None}}, 'SUBURB': {{1: None}}, 'ROAD': {{1: None}}}}
-   - Filter Level: "CITY_DISTRICT"
-   - Query should: Filter on city and city_district columns or city_district and Town column
-   - Group by: city, city_district, and year
-   - Must include city context
-
-3. Town Level:
-   - Example: {{'CITY': {{1: None}}, 'CITY_DISTRICT': {{1: None}}, 'TOWN': {{1: 'Zikhron Yaakov'}}, 'SUBURB': {{1: None}}, 'ROAD': {{1: None}}}}
-   - Filter Level: "TOWN"
-   - Query should: Filter on town column
-   - Group by: town and year
-   - Independent of city/city_district
-
-4. Suburb Level:
-   - Example: {{'CITY': {{1: 'Haifa'}}, 'CITY_DISTRICT': {{1: None}}, 'TOWN': {{1: 'Haifa'}}, 'SUBURB': {{1: 'Neve Sha'anan'}}, 'ROAD': {{1: None}}}}
-   - Filter Level: "SUBURB"
-   - Query should: Filter on suburb, and town, or city columns
-   - Group by: suburb, town or city, and year
-   - Must include town or city context, not both
-
-5. Road Level:
-   - Example: {{'CITY': {{1: 'Haifa'}}, 'CITY_DISTRICT': {{1: None}}, 'TOWN': {{1: 'Haifa'}}, 'SUBURB': {{1: 'Neve Sha'anan'}}, 'ROAD': {{1: 'Herzl'}}}}
-   - Filter Level: "ROAD"
-   - Query should: Filter on road, suburb, town, aornd city columns
-   - Group by: road, suburb, town or city, and year
-   - Must include all parent locations (suburb, town or city)
-
-Query Structure:
-1. Base Query:
-   - Start with accidents table
-   - Filter on appropriate location columns based on filter level
-   - Select all relevant columns
-   - DO NOT use LIMIT clause
-
-2. Aggregation Query:
-   - Use the base query as a CTE (WITH clause)
-   - Group by location hierarchy levels and year
-   - Calculate aggregations at each level
-   - Include all necessary metrics
-   - DO NOT use LIMIT clause
-   - Use ROUND() for all division calculations (e.g., averages)
-
-Requirements for data filtering:
-1. Select all relevant columns
-2. Apply location filters considering the hierarchy
-3. Filter on appropriate location columns
-4. Create a CTE for base data
-5. Add aggregation query with proper grouping
-6. DO NOT use LIMIT clause in any query
-7. Use ROUND() for all division calculations
-"""
-
+# Data Models
 class AccidentData(BaseModel):
+    """Model for accident data statistics."""
     year: int = Field(description="The year of the accident")
-    severity: str = Field(description="The severity level (fatal, serious, light)")
+    severity_level: str = Field(description="The severity level (fatal, serious, minor)")
     accident_count: int = Field(description="Number of accidents")
     people_involved: int = Field(description="Total number of people involved")
     vehicles_involved: int = Field(description="Total number of vehicles involved")
     avg_people_per_accident: float = Field(description="Average people per accident")
     avg_vehicles_per_accident: float = Field(description="Average vehicles per accident")
 
-class AccidentResponse(BaseModel):
-    accidents: List[AccidentData] = Field(description="List of accident data")
 
+class AccidentResponse(BaseModel):
+    """Model for accident analysis response."""
+    accidents: List[AccidentData] = Field(description="List of accident data over time")
+
+    def model_dump_json(self) -> str:
+        """Convert to a flat list of accident data."""
+        return json.dumps([accident.model_dump() for accident in self.accidents])
+
+
+class CauseData(BaseModel):
+    """Model for cause analysis data."""
+    year: int = Field(description="The year of the accident")
+    severity_level: str = Field(description="The severity level (fatal, serious, minor)")
+    cause_column: str = Field(description="The name of the cause column")
+    category_name: str = Field(description="The specific category name")
+    count: int = Field(description="Number of occurrences")
+    percentage: float = Field(description="Percentage of total for that severity level")
+
+
+class CauseResponse(BaseModel):
+    """Model for cause analysis response."""
+    causes: List[CauseData] = Field(description="List of cause analysis data")
+
+    def model_dump_json(self) -> str:
+        """Convert to a flat list of cause data."""
+        return json.dumps([cause.model_dump() for cause in self.causes])
+
+
+class OutcomeData(BaseModel):
+    """Model for outcome analysis data."""
+    year: int = Field(description="The year of the accident")
+    severity_level: str = Field(description="The severity level (fatal, serious, minor)")
+    outcome_column: str = Field(description="The name of the outcome column")
+    category_name: str = Field(description="The specific category name")
+    count: int = Field(description="Number of occurrences")
+    percentage: float = Field(description="Percentage of total for that severity level")
+    avg_casualties: float = Field(description="Average number of casualties")
+    avg_vehicles: float = Field(description="Average number of vehicles involved")
+
+
+class OutcomeResponse(BaseModel):
+    """Model for outcome analysis response."""
+    outcomes: List[OutcomeData] = Field(description="List of outcome analysis data")
+
+    def model_dump_json(self) -> str:
+        """Convert to a flat list of outcome data."""
+        return json.dumps([outcome.model_dump() for outcome in self.outcomes])
+
+
+# Helper Functions
+def load_column_mappings() -> Dict[str, Dict[str, str]]:
+    """Load column mappings from JSON file."""
+    try:
+        with open('data/accident_data_mapping.json', 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        st.error(f"Error loading column mappings: {str(e)}")
+        return {}
+
+
+def format_column_categories(categories: Dict[str, str], mappings: Dict[str, Dict[str, str]]) -> Tuple[str, str]:
+    """Format column categories for prompt parameters."""
+    column_categories = {
+        col: mappings[mapping_key]
+        for col, mapping_key in categories.items()
+    }
+    
+    columns = "\n".join([f"- {col}" for col in column_categories.keys()])
+    category_details = "\n".join([
+        f"* {col} categories: {', '.join(cats.values())}"
+        for col, cats in column_categories.items()
+    ])
+    
+    return columns, category_details
+
+
+# Analysis Functions
 @st.cache_data()
-def analyze_data(filtered_locations, filter_level, filtered_df, analysis_type="general"):
-    """Analyze accident data."""
+def analyze_data(
+    filtered_locations: List[str],
+    filter_level: str,
+    filtered_df: pd.DataFrame,
+    analysis_type: str = "general"
+) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
+    """Analyze accident data based on the specified type.
+    
+    Args:
+        filtered_locations: List of locations to analyze
+        filter_level: Level of location filtering
+        filtered_df: Filtered DataFrame containing the data
+        analysis_type: Type of analysis to perform ("general", "cause", or "outcome")
+        
+    Returns:
+        Tuple containing analysis output, figure, and DataFrame
+    """
     location_name_dict = filtered_df[filtered_df[filter_level].isin(filtered_locations)].to_dict()
     
-    if analysis_type == "general":
-        output, fig = analyze_general(filter_level, location_name_dict)
-        return output, fig
-    elif analysis_type == "cause":
-        output, _ = analyze_cause(filter_level, location_name_dict)
-        return output, None
-    elif analysis_type == "outcome":
-        output = analyze_outcome(filter_level, location_name_dict)
-        return output, None
-    else:
-        return None, None
-    
-
-def analyze_general(filter_level: str, location_name_dict: dict):
-    """Analyze general accident statistics."""
-
-    # Create parser first
-    parser = PydanticOutputParser(pydantic_object=AccidentResponse)
-
-    GENERAL_ANALYSIS_PROMPT = SHARED_PROMPT + """
-Then, analyze the filtered data for the following location:
-
-{format_instructions}
-
-Requirements:
-- Include all years and severity levels in the data
-- Return valid JSON format
-- Ensure the JSON is complete and not truncated
-- Make sure to close all brackets and braces properly
-
-Note: If no accidents found, return: {{"accidents": []}}
-"""
-    # Generate summary of the analysis
-    SUMMARY_PROMPT = """
-Please provide a concise summary of the following accident analysis:
-
-{}
-
-Requirements:
-1. Focus on key findings and trends
-2. Highlight significant patterns or anomalies
-3. Keep the summary clear and easy to understand
-4. Maximum 3-4 sentences
-"""
-
-    prompt = GENERAL_ANALYSIS_PROMPT.format(
-        filter_level, 
-        location_name_dict,
-        format_instructions=parser.get_format_instructions()
-    )
-    
-    output = st.session_state.sql_llm_agent.query_llm(prompt)
-    
-    # Parse the output
-    try:
-        parsed_output = parser.parse(output.content)
-        # Convert to JSON string for chart generation
-        json_str = parsed_output.model_dump_json()
-        
-        # Create chart using our plotting utility
-        # Convert the parsed output to the format expected by create_line_chart
-        chart_data = [
-            {
-                'year': accident.year,
-                'severity': accident.severity,
-                'accident_count': accident.accident_count
-            }
-            for accident in parsed_output.accidents
-        ]
-        
-        if chart_data:
-            fig = create_line_chart(
-                data=chart_data,
-                x_column='year',
-                y_column='accident_count',
-                group_column='severity',
-                title='Accidents Over Time by Severity',
-                x_label='Year',
-                y_label='Number of Accidents',
-                group_label='Accident Severity'
-            )
-        else:
-            fig = None
-            
-    except Exception as e:
-        st.error(f"Error parsing JSON output: {str(e)}")
-        return output, None
-
-    summary_output = st.session_state.llm_model.invoke(SUMMARY_PROMPT.format(json_str))
-    
-    return summary_output, fig
-
-CAUSE_COLUMNS = [
-    "SUG_YOM",      # Type of Day
-    "YOM_LAYLA",    # Day/Night
-    "RAMZOR",       # Traffic Light
-    "SUG_TEUNA",    # Accident Type
-    "ZURAT_DEREH",  # Road Shape
-    "SUG_DEREH",    # Road Type
-    "ROHAV",        # Road Width
-    "HAD_MASLUL",   # Single Lane
-    "RAV_MASLUL",   # Multi Lane
-    "SIMUN_TIMRUR", # Traffic Sign
-    "TEURA",        # Lighting
-    "BAKARA",       # Visibility
-    "LO_HAZA",      # Visibility Obstruction
-    "OFEN_HAZIYA",  # Visibility Method
-    "MEKOM_HAZIYA", # Visibility Location
-    "KIVUN_HAZIYA", # Visibility Direction
-    "MEHIRUT_MUTERET", # Speed Limit
-    "TKINUT",       # Road Marking
-    "MEZEG_AVIR",   # Weather
-    "PNE_KVISH"     # Road Surface
-]
-
-def analyze_cause(filter_level: str, location_name_dict: dict):
-    """Analyze accident causes by severity level."""
-
-    # Load the mapping file
-    with open('data/accident_data_mapping.json', 'r') as f:
-        mappings = json.load(f)
-
-    # Create a mapping of column names to their categories
-    column_categories = {
-        "SUG_YOM": mappings["sug_yom_mapping"],
-        "YOM_LAYLA": mappings["yom_layla_mapping"],
-        "RAMZOR": mappings["ramzor_mapping"],
-        "SUG_TEUNA": mappings["sug_teuna_mapping"],
-        "ZURAT_DEREH": mappings["zurat_derech_mapping"],
-        "SUG_DEREH": mappings["sug_derech_mapping"],
-        "HAD_MASLUL": mappings["had_maslul_mapping"],
-        "RAV_MASLUL": mappings["rav_maslul_mapping"],
-        "MEHIRUT_MUTERET": mappings["mehirut_muteret_mapping"],
-        "TKINUT": mappings["tkinut_mapping"],
-        "ROHAV": mappings["rohav_mapping"],
-        "SIMUN_TIMRUR": mappings["simun_timrur_mapping"],
-        "TEURA": mappings["teura_mapping"],
-        "BAKARA": mappings["bakara_mapping"],
-        "MEZEG_AVIR": mappings["mezeg_avir_mapping"],
-        "PNE_KVISH": mappings["pne_kvish_mapping"]
+    analysis_functions = {
+        "general": analyze_general,
+        "cause": analyze_cause,
+        "outcome": analyze_outcome
     }
+    
+    if analysis_type not in analysis_functions:
+        return None, None, None
+        
+    return analysis_functions[analysis_type](filter_level, location_name_dict)
 
-    ANALYSIS_CAUSE_PROMPT = SHARED_PROMPT + """
-Based on the filtered data, create a single pivot table that counts occurrences of each category in the following columns, grouped by severity level (fatal, serious, light):
 
-{columns}
-
-For each column, count occurrences of each category:
-{category_details}
-
-Output format:
-Create a single table with the following structure:
-- First column: Severity Level (fatal, serious, light)
-- Second column: Cause Column Name
-- Third column: Category Name
-- Fourth column: Count of occurrences
-- Fifth column: Percentage of total for that severity level
-
-Note: Calculate percentages within each severity level (e.g., all percentages for Fatal should sum to 100%)
-""".format(
-        columns="\n".join([f"- {col}" for col in column_categories.keys()]),
-        category_details="\n".join([
-            f"* {col} categories: {', '.join(cats.values())}"
-            for col, cats in column_categories.items()
-        ])
+def analyze_general(filter_level: str, location_name_dict: dict) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
+    """Analyze general accident statistics."""
+    return execute_analysis_pipeline(
+        filter_level,
+        location_name_dict,
+        {},  # No categories needed for general analysis
+        GENERAL_ANALYSIS_PROMPT,
+        GENERAL_SUMMARY_PROMPT,
+        AccidentResponse
     )
 
-    prompt = ANALYSIS_CAUSE_PROMPT.format(filter_level, location_name_dict)
-    output = st.session_state.sql_llm_agent.query_llm(prompt)
 
-    # Add summary analysis
-    SUMMARY_PROMPT = """
-As an expert road engineer and car accident analyst, review the following accident data analysis results:
+def analyze_cause(filter_level: str, location_name_dict: dict) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
+    """Analyze accident causes by severity level."""
+    return execute_analysis_pipeline(
+        filter_level,
+        location_name_dict,
+        COLUMN_CATEGORIES,
+        CAUSE_ANALYSIS_PROMPT,
+        CAUSE_SUMMARY_PROMPT,
+        CauseResponse
+    )
 
-{query_results}
 
-If there is no data in the results (empty table or no records), respond with:
-"There is no accident data available for the given location and filter criteria. No analysis can be performed."
-
-If there is data, provide a professional analysis report in the following format:
-
-EXECUTIVE SUMMARY
-----------------
-A concise overview of the key findings and their implications for road safety.
-
-MAIN FINDINGS
-------------
-1. Overall Top 5 Causes:
-   - Ranked list of the most significant accident causes
-   - Total count and percentage for each cause
-   - Impact analysis of each cause on road safety
-   - Summary of how these causes affect accident severity and frequency
-
-2. Infrastructure Improvement Recommendations:
-   Based on the identified causes, provide specific, actionable recommendations:
-   - Road design modifications
-   - Traffic control enhancements
-   - Safety feature additions
-   - Maintenance priorities
-   - Implementation timeline suggestions
-
-CONCLUSION
-----------
-A brief summary of the most critical findings and recommendations, emphasizing the most urgent safety concerns.
-
-Note: Present the information in a clear, professional manner suitable for a technical report. Focus on actionable insights and practical solutions.
-""".format(query_results=output)
-
-    summary_output = st.session_state.llm_model.invoke(SUMMARY_PROMPT)
-    return summary_output, None
-
-def analyze_outcome(filter_level: str, location_name_dict: dict):
+def analyze_outcome(filter_level: str, location_name_dict: dict) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
     """Analyze accident outcomes."""
+    return execute_analysis_pipeline(
+        filter_level,
+        location_name_dict,
+        OUTCOME_CATEGORIES,
+        OUTCOME_ANALYSIS_PROMPT,
+        OUTCOME_SUMMARY_PROMPT,
+        OutcomeResponse
+    )
+
+
+def generate_base_query(filter_level: str, location_name_dict: dict) -> str:
+    """Generate the base SQL query for analysis.
     
-    ANALYSIS_OUTCOME_PROMPT = SHARED_PROMPT + """
-Then, analyze the filtered data for accident outcomes by:
-1. Basic Statistics:
-   - Total number of accidents
-   - Accidents by severity:
-     * Fatal accidents count and percentage
-     * Serious accidents count and percentage
-     * Light accidents count and percentage
-   - Total number of casualties:
-     * Fatalities count and percentage
-     * Serious injuries count and percentage
-     * Light injuries count and percentage
-   - Total vehicles involved:
-     * Average vehicles per accident
-     * Distribution by vehicle type
+    Args:
+        filter_level: Level of location filtering
+        location_name_dict: Dictionary of location names
+        
+    Returns:
+        The generated base query
+    """
+    base_prompt = BASE_JOIN_PROMPT.format(
+        filter_level=filter_level,
+        location_dict=location_name_dict,
+        general_instructions=GENERAL_INSTRUCTIONS,
+        final_output_format=FINAL_OUTPUT_FORMAT
+    )
+    return st.session_state.sql_llm_agent.execute_sql_query(base_prompt)
 
-2. Environmental Analysis:
-   - Road conditions:
-     * Count and percentage by condition
-     * Severity correlation
-   - Weather conditions:
-     * Count and percentage by condition
-     * Severity correlation
-   - Time patterns:
-     * Accidents by time of day
-     * Accidents by day of week
-     * Seasonal patterns
 
-3. Risk Assessment:
-   - Calculate risk score (1-10) based on:
-     * Accident severity (weight: 0.4)
-     * Number of casualties (weight: 0.3)
-     * Accident frequency (weight: 0.3)
-   - Compare risk scores across:
-     * Different locations
-     * Different conditions
-     * Different time periods
-
-Output format:
-1. Summary Statistics:
-   - Total accidents and casualties
-   - Severity and injury distributions
-   - Vehicle involvement statistics
-
-2. Environmental Analysis:
-   - Road and weather condition impacts
-   - Temporal patterns
-   - Risk factors identification
-
-3. Risk Assessment:
-   - Risk scores and comparisons
-   - High-risk conditions
-   - Safety recommendations
-
-Note: Limit analysis to most informative insights if data volume is large
-"""
-    prompt = ANALYSIS_OUTCOME_PROMPT.format(filter_level, location_name_dict, INFERENCE_COLUMNS)
-    return st.session_state.sql_llm_agent.query_llm(prompt)
-
-def analyze_dataframe(filtered_locations, filter_level, filtered_df, analysis_type="general"):
-    """Run AI-based accident analysis."""
+def prepare_prompt_parameters(
+    base_query: str,
+    response_model: BaseModel,
+    categories: Optional[Dict[str, str]] = None
+) -> Dict[str, str]:
+    """Prepare parameters for the analysis prompt.
     
-    if analysis_type == "general":
-        button_name = "General Analysis"
-    elif analysis_type == "cause":
-        button_name = "Cause Analysis"
-    elif analysis_type == "outcome":
-        button_name = "Outcome Analysis"
-    else:
+    Args:
+        base_query: The base SQL query
+        response_model: Pydantic model for response parsing
+        categories: Optional dictionary of categories for analysis
+        
+    Returns:
+        Dictionary of prompt parameters
+    """
+    parser = PydanticOutputParser(pydantic_object=response_model)
+    prompt_params = {
+        "base_query": base_query,
+        "format_instructions": parser.get_format_instructions(),
+        "general_instructions": GENERAL_INSTRUCTIONS,
+        "final_output_format": FINAL_OUTPUT_FORMAT
+    }
+    
+    if categories:
+        mappings = load_column_mappings()
+        columns, category_details = format_column_categories(categories, mappings)
+        prompt_params.update({
+            "columns": columns,
+            "category_details": category_details
+        })
+    
+    return prompt_params
+
+
+def process_analysis_results(
+    analysis_results: str,
+    response_model: BaseModel
+) -> Tuple[pd.DataFrame, str]:
+    """Process and parse the analysis results.
+    
+    Args:
+        analysis_results: Raw analysis results from SQL query
+        response_model: Pydantic model for response parsing
+        
+    Returns:
+        Tuple of (DataFrame, JSON string)
+    """
+    parser = PydanticOutputParser(pydantic_object=response_model)
+    parsed_output = parser.parse(analysis_results)
+    json_str = parsed_output.model_dump_json()
+    df = pd.read_json(json_str)
+    return df, json_str
+
+
+def generate_visualization(df: pd.DataFrame, json_str: str) -> Optional[Any]:
+    """Generate visualization from the analysis results.
+    
+    Args:
+        df: DataFrame containing the analysis results
+        json_str: JSON string representation of the data
+        
+    Returns:
+        Plotly figure or None if generation fails
+    """
+    chart_prompt = CHART_PROMPT.format(data=json_str)
+    fig_result = st.session_state.python_agent.execute(chart_prompt)
+    return run_chart_code(fig_result, df)
+
+
+def generate_summary(df: pd.DataFrame, summary_prompt: str) -> Any:
+    """Generate summary of the analysis results.
+    
+    Args:
+        df: DataFrame containing the analysis results
+        summary_prompt: Prompt template for summary generation
+        
+    Returns:
+        Generated summary
+    """
+    return st.session_state.llm_model.invoke(
+        summary_prompt.format(data=df)
+    )
+
+
+def execute_analysis_pipeline(
+    filter_level: str,
+    location_name_dict: dict,
+    categories: Dict[str, str],
+    analysis_prompt: str,
+    summary_prompt: str,
+    response_model: BaseModel
+) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
+    """Execute the complete analysis pipeline including query generation, data processing, and visualization.
+    
+    Args:
+        filter_level: Level of location filtering
+        location_name_dict: Dictionary of location names
+        categories: Dictionary of categories for analysis
+        analysis_prompt: Prompt template for analysis
+        summary_prompt: Prompt template for summary
+        response_model: Pydantic model for response parsing
+        
+    Returns:
+        Tuple containing analysis output, figure, and DataFrame
+    """
+    try:
+        # Generate base query
+        base_query = generate_base_query(filter_level, location_name_dict)
+        
+        # Prepare prompt parameters
+        prompt_params = prepare_prompt_parameters(base_query, response_model, categories)
+        
+        # Execute analysis
+        analysis_results = st.session_state.sql_llm_agent.execute_sql_query(
+            analysis_prompt.format(**prompt_params)
+        )
+        
+        # Process results
+        df, json_str = process_analysis_results(analysis_results, response_model)
+        
+        # Generate visualization
+        fig = generate_visualization(df, json_str)
+        
+        # Generate summary
+        summary_output = generate_summary(df, summary_prompt)
+        
+        return summary_output, fig, df
+        
+    except Exception as e:
+        st.error(f"Error executing or parsing query: {str(e)}")
+        return None, None, None
+
+
+def analyze_dataframe(
+    filtered_locations: List[str],
+    filter_level: str,
+    filtered_df: pd.DataFrame,
+    analysis_type: str = "general"
+) -> None:
+    """Run AI-based accident analysis and display results.
+    
+    Args:
+        filtered_locations: List of locations to analyze
+        filter_level: Level of location filtering
+        filtered_df: Filtered DataFrame containing the data
+        analysis_type: Type of analysis to perform
+    """
+    # Set up button name and columns
+    button_names = {
+        "general": "General Analysis",
+        "cause": "Cause Analysis",
+        "outcome": "Outcome Analysis"
+    }
+    
+    button_name = button_names.get(analysis_type)
+    if not button_name:
         return
-
-    # Create a single level of columns
-    button_col, popover_output_col, chart_output_col = st.columns([1.5, 1.5, 10])
+        
+    # Create layout
+    button_col, popover_output_col, chart_output_col, data_output_col = st.columns([1.5, 1.5, 5, 5])
     
     with button_col:
-        if st.button("📈 " + button_name,
-                     key="Accident " + str.capitalize(analysis_type) + " Analysis",
-                     help=f"Process {analysis_type} accident data"):
-
+        if st.button(
+            f"📈 {button_name}",
+            key=f"Accident {str.capitalize(analysis_type)} Analysis",
+            help=f"Process {analysis_type} accident data"
+        ):
+            # Validate inputs
             if filtered_df.empty:
                 st.error("Please choose point on the map and filter level to proceed")
             elif not filter_level:
@@ -406,9 +379,16 @@ def analyze_dataframe(filtered_locations, filter_level, filtered_df, analysis_ty
             elif not filtered_locations:
                 st.error("Please choose locations to analyze.")
             else:
+                # Perform analysis
                 with st.spinner(f"Performing {analysis_type} analysis..."):
-                    output, fig = analyze_data(filtered_locations, filter_level, filtered_df, analysis_type)
+                    output, fig, df = analyze_data(
+                        filtered_locations,
+                        filter_level,
+                        filtered_df,
+                        analysis_type
+                    )
                     
+                    # Display results
                     with popover_output_col:
                         with st.popover(f"Show {button_name}"):
                             st.markdown(output.content)
@@ -426,8 +406,23 @@ def analyze_dataframe(filtered_locations, filter_level, filtered_df, analysis_ty
                     else:
                         with chart_output_col:
                             st.info("No data available to create chart")
+                    
+                    # Display DataFrame
+                    if df is not None:
+                        with data_output_col:
+                            with st.popover(f"Show {button_name} Data", use_container_width=True):
+                                st.dataframe(
+                                    df,
+                                    use_container_width=True,
+                                    height=500
+                                )
+
 
 if __name__ == "__main__":
     initialize_session()
-    summary_output, fig = analyze_general("TOWN", {'TOWN': {1: 'Zikhron Yaakov'}, 'CITY': {1: None}, 'CITY_DISTRICT': {1: None}})
-    print(summary_output)
+    # Example usage
+    analyze_cause, fig, df = analyze_general(
+        "ROAD",
+        {'ROAD': {9: '40'}, 'SUBURB': {9: None}, 'TOWN': {9: None}, 'CITY': {9: None}, 'CITY_DISTRICT': {9: None}}
+    )
+    print(analyze_cause)

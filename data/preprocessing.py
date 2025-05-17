@@ -8,8 +8,8 @@ import os
 
 from tqdm import tqdm
 
-from utils.geocoding import GeoHelper
-from utils.sql_db import SqlDb
+from utils.map.geocoding import GeoHelper
+from utils.sql.sql_db import SqlDb
 
 """
 Accident Data Processing Script
