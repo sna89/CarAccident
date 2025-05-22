@@ -2,190 +2,41 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List,  Any, Tuple, Optional, TypedDict
 import json
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from langchain.output_parsers import PydanticOutputParser
+from langchain.output_parsers import StructuredOutputParser
+from langchain.output_parsers import ResponseSchema
 from pydantic import BaseModel, Field
 
 from utils.session.session_handler import initialize_session
-from utils.agents.python_agent import run_chart_code
 from components.map.prompts import (
-    GENERAL_ANALYSIS_PROMPT,
     GENERAL_SUMMARY_PROMPT,
-    CAUSE_ANALYSIS_PROMPT,
     CAUSE_SUMMARY_PROMPT,
-    OUTCOME_ANALYSIS_PROMPT,
     OUTCOME_SUMMARY_PROMPT,
-    OUTCOME_CATEGORIES,
-    CAUSE_COLUMN_CATEGORIES as COLUMN_CATEGORIES,
     BASE_JOIN_PROMPT,
-    GENERAL_INSTRUCTIONS,
-    FINAL_OUTPUT_FORMAT,
-    CHART_PROMPT
 )
 
-
-# Data Models
-class AccidentData(BaseModel):
-    """Model for accident data statistics."""
-    year: int = Field(description="The year of the accident")
-    severity_level: str = Field(description="The severity level (fatal, serious, minor)")
-    accident_count: int = Field(description="Number of accidents")
-    people_involved: int = Field(description="Total number of people involved")
-    vehicles_involved: int = Field(description="Total number of vehicles involved")
-    avg_people_per_accident: float = Field(description="Average people per accident")
-    avg_vehicles_per_accident: float = Field(description="Average vehicles per accident")
+from components.map.static_queries import (
+    GENERAL_ANALYSIS_QUERY, 
+    CAUSE_ANALYSIS_QUERY, 
+    OUTCOME_ANALYSIS_QUERY
+)
+from components.map.analysis_graph import create_analysis_graph
 
 
-class AccidentResponse(BaseModel):
-    """Model for accident analysis response."""
-    accidents: List[AccidentData] = Field(description="List of accident data over time")
+class SQLQueryResponse(BaseModel):
+    """Model for SQL query response."""
+    sql_query: str = Field(description="The SQL query to execute")
 
     def model_dump_json(self) -> str:
-        """Convert to a flat list of accident data."""
-        return json.dumps([accident.model_dump() for accident in self.accidents])
+        """Convert to JSON string."""
+        return json.dumps(self.model_dump())
 
 
-class CauseData(BaseModel):
-    """Model for cause analysis data."""
-    year: int = Field(description="The year of the accident")
-    severity_level: str = Field(description="The severity level (fatal, serious, minor)")
-    cause_column: str = Field(description="The name of the cause column")
-    category_name: str = Field(description="The specific category name")
-    count: int = Field(description="Number of occurrences")
-    percentage: float = Field(description="Percentage of total for that severity level")
-
-
-class CauseResponse(BaseModel):
-    """Model for cause analysis response."""
-    causes: List[CauseData] = Field(description="List of cause analysis data")
-
-    def model_dump_json(self) -> str:
-        """Convert to a flat list of cause data."""
-        return json.dumps([cause.model_dump() for cause in self.causes])
-
-
-class OutcomeData(BaseModel):
-    """Model for outcome analysis data."""
-    year: int = Field(description="The year of the accident")
-    severity_level: str = Field(description="The severity level (fatal, serious, minor)")
-    outcome_column: str = Field(description="The name of the outcome column")
-    category_name: str = Field(description="The specific category name")
-    count: int = Field(description="Number of occurrences")
-    percentage: float = Field(description="Percentage of total for that severity level")
-    avg_casualties: float = Field(description="Average number of casualties")
-    avg_vehicles: float = Field(description="Average number of vehicles involved")
-
-
-class OutcomeResponse(BaseModel):
-    """Model for outcome analysis response."""
-    outcomes: List[OutcomeData] = Field(description="List of outcome analysis data")
-
-    def model_dump_json(self) -> str:
-        """Convert to a flat list of outcome data."""
-        return json.dumps([outcome.model_dump() for outcome in self.outcomes])
-
-
-# Helper Functions
-def load_column_mappings() -> Dict[str, Dict[str, str]]:
-    """Load column mappings from JSON file."""
-    try:
-        with open('data/accident_data_mapping.json', 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        st.error(f"Error loading column mappings: {str(e)}")
-        return {}
-
-
-def format_column_categories(categories: Dict[str, str], mappings: Dict[str, Dict[str, str]]) -> Tuple[str, str]:
-    """Format column categories for prompt parameters."""
-    column_categories = {
-        col: mappings[mapping_key]
-        for col, mapping_key in categories.items()
-    }
-    
-    columns = "\n".join([f"- {col}" for col in column_categories.keys()])
-    category_details = "\n".join([
-        f"* {col} categories: {', '.join(cats.values())}"
-        for col, cats in column_categories.items()
-    ])
-    
-    return columns, category_details
-
-
-# Analysis Functions
-@st.cache_data()
-def analyze_data(
-    filtered_locations: List[str],
-    filter_level: str,
-    filtered_df: pd.DataFrame,
-    analysis_type: str = "general"
-) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
-    """Analyze accident data based on the specified type.
-    
-    Args:
-        filtered_locations: List of locations to analyze
-        filter_level: Level of location filtering
-        filtered_df: Filtered DataFrame containing the data
-        analysis_type: Type of analysis to perform ("general", "cause", or "outcome")
-        
-    Returns:
-        Tuple containing analysis output, figure, and DataFrame
-    """
-    location_name_dict = filtered_df[filtered_df[filter_level].isin(filtered_locations)].to_dict()
-    
-    analysis_functions = {
-        "general": analyze_general,
-        "cause": analyze_cause,
-        "outcome": analyze_outcome
-    }
-    
-    if analysis_type not in analysis_functions:
-        return None, None, None
-        
-    return analysis_functions[analysis_type](filter_level, location_name_dict)
-
-
-def analyze_general(filter_level: str, location_name_dict: dict) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
-    """Analyze general accident statistics."""
-    return execute_analysis_pipeline(
-        filter_level,
-        location_name_dict,
-        {},  # No categories needed for general analysis
-        GENERAL_ANALYSIS_PROMPT,
-        GENERAL_SUMMARY_PROMPT,
-        AccidentResponse
-    )
-
-
-def analyze_cause(filter_level: str, location_name_dict: dict) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
-    """Analyze accident causes by severity level."""
-    return execute_analysis_pipeline(
-        filter_level,
-        location_name_dict,
-        COLUMN_CATEGORIES,
-        CAUSE_ANALYSIS_PROMPT,
-        CAUSE_SUMMARY_PROMPT,
-        CauseResponse
-    )
-
-
-def analyze_outcome(filter_level: str, location_name_dict: dict) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
-    """Analyze accident outcomes."""
-    return execute_analysis_pipeline(
-        filter_level,
-        location_name_dict,
-        OUTCOME_CATEGORIES,
-        OUTCOME_ANALYSIS_PROMPT,
-        OUTCOME_SUMMARY_PROMPT,
-        OutcomeResponse
-    )
-
-
-def generate_base_query(filter_level: str, location_name_dict: dict) -> str:
+def generate_base_query(filter_level: str, location_name_dict: dict, base_query_format_instructions: str) -> str:
     """Generate the base SQL query for analysis.
     
     Args:
@@ -198,79 +49,27 @@ def generate_base_query(filter_level: str, location_name_dict: dict) -> str:
     base_prompt = BASE_JOIN_PROMPT.format(
         filter_level=filter_level,
         location_dict=location_name_dict,
-        general_instructions=GENERAL_INSTRUCTIONS,
-        final_output_format=FINAL_OUTPUT_FORMAT
+        base_query_format_instructions=base_query_format_instructions
     )
     return st.session_state.sql_llm_agent.execute_sql_query(base_prompt)
 
 
-def prepare_prompt_parameters(
-    base_query: str,
-    response_model: BaseModel,
-    categories: Optional[Dict[str, str]] = None
-) -> Dict[str, str]:
-    """Prepare parameters for the analysis prompt.
-    
-    Args:
-        base_query: The base SQL query
-        response_model: Pydantic model for response parsing
-        categories: Optional dictionary of categories for analysis
-        
-    Returns:
-        Dictionary of prompt parameters
-    """
-    parser = PydanticOutputParser(pydantic_object=response_model)
-    prompt_params = {
-        "base_query": base_query,
-        "format_instructions": parser.get_format_instructions(),
-        "general_instructions": GENERAL_INSTRUCTIONS,
-        "final_output_format": FINAL_OUTPUT_FORMAT
-    }
-    
-    if categories:
-        mappings = load_column_mappings()
-        columns, category_details = format_column_categories(categories, mappings)
-        prompt_params.update({
-            "columns": columns,
-            "category_details": category_details
-        })
-    
-    return prompt_params
-
-
-def process_analysis_results(
-    analysis_results: str,
-    response_model: BaseModel
-) -> Tuple[pd.DataFrame, str]:
-    """Process and parse the analysis results.
-    
-    Args:
-        analysis_results: Raw analysis results from SQL query
-        response_model: Pydantic model for response parsing
-        
-    Returns:
-        Tuple of (DataFrame, JSON string)
-    """
-    parser = PydanticOutputParser(pydantic_object=response_model)
-    parsed_output = parser.parse(analysis_results)
-    json_str = parsed_output.model_dump_json()
-    df = pd.read_json(json_str)
-    return df, json_str
-
-
-def generate_visualization(df: pd.DataFrame, json_str: str) -> Optional[Any]:
+def generate_visualization(df: pd.DataFrame) -> Optional[Any]:
     """Generate visualization from the analysis results.
     
     Args:
         df: DataFrame containing the analysis results
-        json_str: JSON string representation of the data
         
     Returns:
         Plotly figure or None if generation fails
     """
-    chart_prompt = CHART_PROMPT.format(data=json_str)
-    fig_result = st.session_state.python_agent.execute(chart_prompt)
-    return run_chart_code(fig_result, df)
+    # Create and run the analysis workflow
+    graph = create_analysis_graph()
+      
+    result = graph.invoke({"df": df, "retry_count": 0, "max_retries": 3})
+    
+    # Return the figure if successful, None if there was an error
+    return result.get("fig") if not result.get("error") else None
 
 
 def generate_summary(df: pd.DataFrame, summary_prompt: str) -> Any:
@@ -288,46 +87,88 @@ def generate_summary(df: pd.DataFrame, summary_prompt: str) -> Any:
     )
 
 
+def get_analysis_config(analysis_type: str) -> Tuple[str, str]:
+    """Get the appropriate query template and summary prompt for the analysis type.
+    
+    Args:
+        analysis_type: Type of analysis to perform
+        
+    Returns:
+        Tuple of (query_template, summary_prompt)
+    """
+    configs = {
+        "general": (GENERAL_ANALYSIS_QUERY, GENERAL_SUMMARY_PROMPT),
+        "cause": (CAUSE_ANALYSIS_QUERY, CAUSE_SUMMARY_PROMPT),
+        "outcome": (OUTCOME_ANALYSIS_QUERY, OUTCOME_SUMMARY_PROMPT)
+    }
+    
+    if analysis_type not in configs:
+        raise ValueError(f"Invalid analysis type: {analysis_type}")
+        
+    return configs[analysis_type]
+
+
+def create_sql_parser() -> Tuple[StructuredOutputParser, str]:
+    """Create a SQL query parser and get its format instructions.
+    
+    Returns:
+        Tuple of (parser, format_instructions)
+    """
+    response_schema = ResponseSchema(
+        name="sql_query",
+        description="The SQL query to execute"
+    )
+    parser = StructuredOutputParser.from_response_schemas([response_schema])
+    format_instructions = parser.get_format_instructions()
+    return parser, format_instructions
+
+
+def parse_base_query(base_query: str, parser: StructuredOutputParser) -> str:
+    """Parse the base query response using StructuredOutputParser.
+    
+    Args:
+        base_query: Raw base query response
+        parser: Configured parser instance
+        
+    Returns:
+        Parsed SQL query string
+    """
+    parsed_response = parser.parse(base_query)
+    return parsed_response.get("sql_query")
+
+
 def execute_analysis_pipeline(
     filter_level: str,
     location_name_dict: dict,
-    categories: Dict[str, str],
-    analysis_prompt: str,
-    summary_prompt: str,
-    response_model: BaseModel
+    analysis_type: str
 ) -> Tuple[Optional[str], Optional[Any], Optional[pd.DataFrame]]:
     """Execute the complete analysis pipeline including query generation, data processing, and visualization.
     
     Args:
         filter_level: Level of location filtering
         location_name_dict: Dictionary of location names
-        categories: Dictionary of categories for analysis
-        analysis_prompt: Prompt template for analysis
-        summary_prompt: Prompt template for summary
-        response_model: Pydantic model for response parsing
+        analysis_type: Type of analysis to perform ("general", "cause", or "outcome")
         
     Returns:
         Tuple containing analysis output, figure, and DataFrame
     """
     try:
-        # Generate base query
-        base_query = generate_base_query(filter_level, location_name_dict)
+        # Create parser and get format instructions
+        parser, format_instructions = create_sql_parser()
         
-        # Prepare prompt parameters
-        prompt_params = prepare_prompt_parameters(base_query, response_model, categories)
+        # Generate and parse base query
+        base_query = generate_base_query(filter_level, location_name_dict, format_instructions)
+        base_query_sql = parse_base_query(base_query, parser)
         
-        # Execute analysis
-        analysis_results = st.session_state.sql_llm_agent.execute_sql_query(
-            analysis_prompt.format(**prompt_params)
-        )
+        # Get analysis configuration
+        query_template, summary_prompt = get_analysis_config(analysis_type)
         
-        # Process results
-        df, json_str = process_analysis_results(analysis_results, response_model)
+        # Create and execute final query
+        query_data = SQLQueryResponse(sql_query=query_template.format(base_query=base_query_sql))
+        df = st.session_state.db.execute_query(query_data.sql_query)
         
-        # Generate visualization
-        fig = generate_visualization(df, json_str)
-        
-        # Generate summary
+        # Generate visualization and summary
+        fig = generate_visualization(df)
         summary_output = generate_summary(df, summary_prompt)
         
         return summary_output, fig, df
@@ -381,10 +222,9 @@ def analyze_dataframe(
             else:
                 # Perform analysis
                 with st.spinner(f"Performing {analysis_type} analysis..."):
-                    output, fig, df = analyze_data(
-                        filtered_locations,
+                    output, fig, df = execute_analysis_pipeline(
                         filter_level,
-                        filtered_df,
+                        filtered_df[filtered_df[filter_level].isin(filtered_locations)].to_dict(),
                         analysis_type
                     )
                     
@@ -420,9 +260,10 @@ def analyze_dataframe(
 
 if __name__ == "__main__":
     initialize_session()
-    # Example usage
-    analyze_cause, fig, df = analyze_general(
+    # Example usage 
+    analyze_cause, fig, df = execute_analysis_pipeline(
         "ROAD",
-        {'ROAD': {9: '40'}, 'SUBURB': {9: None}, 'TOWN': {9: None}, 'CITY': {9: None}, 'CITY_DISTRICT': {9: None}}
+        {'ROAD': {0: '70'}, 'SUBURB': {0: None}, 'TOWN': {0: None}, 'CITY': {0: 'Zvulun Regional Council'}, 'CITY_DISTRICT': {0: None}},
+        "outcome"
     )
     print(analyze_cause)

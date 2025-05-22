@@ -2,7 +2,7 @@ import streamlit as st
 from config import INITIAL_DF, LLM_MODEL
 from utils.sql.sql_llm_agent import SqlLLMAgent
 from utils.llm.model import get_llm_model
-from utils.agents.python_agent import PythonAgent
+from utils.sql.sql_db import SqlDb
 
 def initialize_session() -> None:
     """Initialize Streamlit session state variables."""
@@ -13,9 +13,12 @@ def initialize_session() -> None:
     st.session_state.clear_data = False
     st.session_state.current_view = "main"
     
+    # Initialize database connection
+    st.session_state.db = SqlDb()
+    
+    # Initialize agents and models
     st.session_state.sql_llm_agent = SqlLLMAgent()
     st.session_state.llm_model = get_llm_model(provider="openai", model_name=LLM_MODEL)
-    st.session_state.python_agent = PythonAgent()
 
     if "messages" not in st.session_state:
         st.session_state.messages = []

@@ -1,7 +1,7 @@
 import os
 import urllib.parse
 
-from sqlalchemy import create_engine, Table, insert, MetaData
+from sqlalchemy import create_engine, Table, insert, MetaData, text
 from langchain_community.utilities import SQLDatabase
 from dotenv import load_dotenv
 from supabase import create_client
@@ -29,6 +29,25 @@ class SqlDb:
     def _create_db(self):
         db = SQLDatabase(self.engine)
         return db
+
+    def execute_query(self, query: str) -> pd.DataFrame:
+        """Execute a SQL query and return the results as a pandas DataFrame.
+        
+        Args:
+            query: The SQL query to execute
+            
+        Returns:
+            DataFrame containing the query results
+            
+        Raises:
+            Exception: If there's an error executing the query
+        """
+        try:
+            with self.engine.connect() as connection:
+                result = connection.execute(text(query))
+                return pd.DataFrame(result.fetchall(), columns=result.keys())
+        except Exception as e:
+            raise Exception(f"Error executing query: {str(e)}")
 
     def upload_table_from_pandas_df(self, table_name, df, if_exists="append"):
         assert self.engine, "SQL Engine is not configured"
